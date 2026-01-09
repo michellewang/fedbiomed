@@ -1,0 +1,6 @@
+fl_pd @ git+https://github.com/neurodatascience/fl-pd.git
+nipoppy
+numpy
+pandas
+skrub
+sklearn

@@ -76,6 +76,7 @@ USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Installs fedbiomed and necessary modules
 RUN /bin/pip install --no-warn-script-location -I '.[node]'
+RUN /bin/pip install --no-warn-script-location -r 'requirements.txt'
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
