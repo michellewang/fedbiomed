@@ -63,6 +63,7 @@ COPY fedbiomed_gui /fedbiomed/fedbiomed_gui
 COPY pyproject.toml /fedbiomed/pyproject.toml
 COPY README.md /fedbiomed/README.md
 COPY hatch_build.py /fedbiomed/hatch_build.py
+COPY fl_pd-requirements.txt /fedbiomed/fl_pd-requirements.txt
 
 RUN ln -s /fedbiomed/docs/tutorials /fedbiomed/notebooks/tutorials
 
@@ -81,6 +82,7 @@ USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Install fedbiomed and its requirements
 RUN pip install --no-warn-script-location '.[researcher]'
+RUN pip install --no-warn-script-location -r 'fl_pd-requirements.txt'
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

@@ -67,6 +67,7 @@ COPY fedbiomed_gui /fedbiomed/fedbiomed_gui
 COPY pyproject.toml /fedbiomed/pyproject.toml
 COPY README.md /fedbiomed/README.md
 COPY hatch_build.py /fedbiomed/hatch_build.py
+COPY fl_pd-requirements.txt /fedbiomed/fl_pd-requirements.txt
 
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for
@@ -86,6 +87,7 @@ USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Installs fedbiomed and necessary modules
 RUN pip install --no-warn-script-location '.[gui]'
+RUN pip install --no-warn-script-location -r 'fl_pd-requirements.txt'
 
 # Changedir to main directory
 WORKDIR /
