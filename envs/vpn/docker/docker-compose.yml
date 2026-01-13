@@ -34,6 +34,13 @@ x-node:
   volumes:
     - ./node/run_mounts/config:/config # contains VPN configurations
     - ./node/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+    - ${FL_PD_DATA_DIR}:/fbm-node/data
+    - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
+    - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
+    - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
+    - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
+    - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+    - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
 #
 # optionally launch a second node instance on the same machine
 x-node2:
@@ -65,7 +72,6 @@ x-node2:
   volumes:
     - ./node2/run_mounts/config:/config # contains VPN configurations
     - ./node2/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
-
 services:
   #
   # intermediate step : base image for building vpn and researcher containers
@@ -204,7 +210,6 @@ services:
       # caution: /fbm-node directory must be shared with node
       - ./gui/run_mounts/certs:/certs
       - ./node/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
-
   # node gui component
   gui2:
     container_name: fedbiomed-vpn-gui2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
