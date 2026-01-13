@@ -273,6 +273,7 @@ services:
       - ./researcher/run_mounts/config:/config # contains VPN configurations
       - ./researcher/run_mounts/samples:/fedbiomed/notebooks/samples # contains researcher sample notebooks
       - ./researcher/run_mounts/fbm-researcher:/fbm-researcher # contains fedbiomed component configuration and data
+      - ${FL_PD_PROJECT_DIR}:/fl-pd
 #
 networks:
   fedbiomed_vpnserver:
