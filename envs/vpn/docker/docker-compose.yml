@@ -34,13 +34,6 @@ x-node:
   volumes:
     - ./node/run_mounts/config:/config # contains VPN configurations
     - ./node/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
-    - ${FL_PD_DATA_DIR}:/fbm-node/data
-    - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
-    - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
-    - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
-    - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
-    - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
-    - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
 #
 # optionally launch a second node instance on the same machine
 x-node2:
@@ -176,6 +169,248 @@ services:
     << : *standard-node2
     runtime: nvidia
 
+  # fl-pd datasets
+  node-adni:
+    container_name: fedbiomed-vpn-node-adni-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-node-adni-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    build:
+      context: ../../..
+      dockerfile: envs/vpn/docker/node/build_files/Dockerfile
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
+        - CONTAINER_USER
+        - CONTAINER_GROUP
+        - FBM_CONTAINER_VERSION_TAG
+    image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_node_adni
+    environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
+      - FBM_NODE_START_OPTIONS
+      - FBM_SECURITY_FORCE_SECURE_AGGREGATION
+      - FBM_SECURITY_TRAINING_PLAN_APPROVAL
+      - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
+    cap_add:
+      - net_admin
+      - sys_module
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./node-adni/run_mounts/config:/config # contains VPN configurations
+      - ./node-adni/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+      - ${FL_PD_DATA_DIR}:${FL_PD_DATA_DIR}
+      - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
+      - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
+      - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
+      - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
+      - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+      - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
+  node-calgary:
+    container_name: fedbiomed-vpn-node-calgary-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-node-calgary-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    build:
+      context: ../../..
+      dockerfile: envs/vpn/docker/node/build_files/Dockerfile
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
+        - CONTAINER_USER
+        - CONTAINER_GROUP
+        - FBM_CONTAINER_VERSION_TAG
+    image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_node_calgary
+    environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
+      - FBM_NODE_START_OPTIONS
+      - FBM_SECURITY_FORCE_SECURE_AGGREGATION
+      - FBM_SECURITY_TRAINING_PLAN_APPROVAL
+      - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
+    cap_add:
+      - net_admin
+      - sys_module
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./node-calgary/run_mounts/config:/config # contains VPN configurations
+      - ./node-calgary/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+      - ${FL_PD_DATA_DIR}:${FL_PD_DATA_DIR}
+      - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
+      - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
+      - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
+      - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
+      - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+      - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
+  node-mega:
+    container_name: fedbiomed-vpn-node-mega-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-node-mega-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    build:
+      context: ../../..
+      dockerfile: envs/vpn/docker/node/build_files/Dockerfile
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
+        - CONTAINER_USER
+        - CONTAINER_GROUP
+        - FBM_CONTAINER_VERSION_TAG
+    image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_node_mega
+    environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
+      - FBM_NODE_START_OPTIONS
+      - FBM_SECURITY_FORCE_SECURE_AGGREGATION
+      - FBM_SECURITY_TRAINING_PLAN_APPROVAL
+      - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
+    cap_add:
+      - net_admin
+      - sys_module
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./node-mega/run_mounts/config:/config # contains VPN configurations
+      - ./node-mega/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+      - ${FL_PD_DATA_DIR}:${FL_PD_DATA_DIR}
+      - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
+      - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
+      - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
+      - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
+      - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+      - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
+  node-pad:
+    container_name: fedbiomed-vpn-node-pad-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-node-pad-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    build:
+      context: ../../..
+      dockerfile: envs/vpn/docker/node/build_files/Dockerfile
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
+        - CONTAINER_USER
+        - CONTAINER_GROUP
+        - FBM_CONTAINER_VERSION_TAG
+    image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_node_pad
+    environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
+      - FBM_NODE_START_OPTIONS
+      - FBM_SECURITY_FORCE_SECURE_AGGREGATION
+      - FBM_SECURITY_TRAINING_PLAN_APPROVAL
+      - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
+    cap_add:
+      - net_admin
+      - sys_module
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./node-pad/run_mounts/config:/config # contains VPN configurations
+      - ./node-pad/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+      - ${FL_PD_DATA_DIR}:${FL_PD_DATA_DIR}
+      - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
+      - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
+      - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
+      - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
+      - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+      - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
+  node-ppmi:
+    container_name: fedbiomed-vpn-node-ppmi-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-node-ppmi-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    build:
+      context: ../../..
+      dockerfile: envs/vpn/docker/node/build_files/Dockerfile
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
+        - CONTAINER_USER
+        - CONTAINER_GROUP
+        - FBM_CONTAINER_VERSION_TAG
+    image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_node_ppmi
+    environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
+      - FBM_NODE_START_OPTIONS
+      - FBM_SECURITY_FORCE_SECURE_AGGREGATION
+      - FBM_SECURITY_TRAINING_PLAN_APPROVAL
+      - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
+    cap_add:
+      - net_admin
+      - sys_module
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./node-ppmi/run_mounts/config:/config # contains VPN configurations
+      - ./node-ppmi/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+      - ${FL_PD_DATA_DIR}:${FL_PD_DATA_DIR}
+      - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
+      - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
+      - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
+      - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
+      - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+      - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
+  node-qpn:
+    container_name: fedbiomed-vpn-node-qpn-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-node-qpn-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    build:
+      context: ../../..
+      dockerfile: envs/vpn/docker/node/build_files/Dockerfile
+      args:
+        - CONTAINER_UID
+        - CONTAINER_GID
+        - CONTAINER_USER
+        - CONTAINER_GROUP
+        - FBM_CONTAINER_VERSION_TAG
+    image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_node_qpn
+    environment:
+    # enable overloading build-time id with a run-time id
+      - CONTAINER_UID
+      - CONTAINER_GID
+      - CONTAINER_USER
+      - CONTAINER_GROUP
+      - FBM_NODE_START_OPTIONS
+      - FBM_SECURITY_FORCE_SECURE_AGGREGATION
+      - FBM_SECURITY_TRAINING_PLAN_APPROVAL
+      - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
+    cap_add:
+      - net_admin
+      - sys_module
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./node-qpn/run_mounts/config:/config # contains VPN configurations
+      - ./node-qpn/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+      - ${FL_PD_DATA_DIR}:${FL_PD_DATA_DIR}
+      - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
+      - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
+      - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
+      - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
+      - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+      - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
+
   #
   # node gui component
   gui:
@@ -284,6 +519,18 @@ networks:
     name: fedbiomed_node_${FBM_CONTAINER_INSTANCE_ID:-unknown}
   fedbiomed_node2:
     name: fedbiomed_node2_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_node_adni:
+    name: fedbiomed_node_adni_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_node_calgary:
+    name: fedbiomed_node_calgary_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_node_mega:
+    name: fedbiomed_node_mega_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_node_pad:
+    name: fedbiomed_node_pad_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_node_ppmi:
+    name: fedbiomed_node_ppmi_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_node_qpn:
+    name: fedbiomed_node_qpn_${FBM_CONTAINER_INSTANCE_ID:-unknown}
   fedbiomed_gui:
     name: fedbiomed_gui_${FBM_CONTAINER_INSTANCE_ID:-unknown}
   fedbiomed_gui2:

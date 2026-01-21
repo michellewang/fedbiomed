@@ -14,8 +14,8 @@
 
 # main variables
 # --------------
-ALL_VPN_CONTAINERS=( vpnserver researcher node node2 gui gui2 )
-ALL_VPN_NETWORKS=( vpnserver researcher node node2 gui gui2 misc )
+ALL_VPN_CONTAINERS=( vpnserver researcher node node2 gui gui2 node-adni node-calgary node-pad node-ppmi node-qpn node-mega )
+ALL_VPN_NETWORKS=( vpnserver researcher node node2 gui gui2 misc node-adni node-calgary node-pad node-ppmi node-qpn node-mega )
 
 # all functions
 # -------------
@@ -192,7 +192,7 @@ add_container() {
     container=$1
 
     case $container in
-        vpnserver|researcher|node|node2|gui|gui2)
+        vpnserver|researcher|node|node2|gui|gui2|node-adni|node-calgary|node-pad|node-ppmi|node-qpn|node-mega)
             # verify if container already in the list
             found=0
             for c in ${ONLY_CONTAINERS[@]}
@@ -662,7 +662,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    vpnserver|researcher|node|node2|gui|gui2) add_container $1;;
+                    vpnserver|researcher|node|node2|gui|gui2|node-adni|node-calgary|node-pad|node-ppmi|node-qpn|node-mega) add_container $1;;
                     -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
