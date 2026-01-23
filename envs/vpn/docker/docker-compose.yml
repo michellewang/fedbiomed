@@ -203,12 +203,15 @@ services:
     volumes:
       - ./node-adni/run_mounts/config:/config # contains VPN configurations
       - ./node-adni/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+      - ./_dataset_configs:/_dataset_configs # contains JSON files for "fedbiomed node dataset add"
       - ${FL_PD_DATA_DIR}:${FL_PD_DATA_DIR}
       - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
       - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
       - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
       - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
       - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+      - ${QPN_MANIFEST_FILE}:${QPN_MANIFEST_FILE}
+      - ${QPN_FREESURFER_DIR}:${QPN_FREESURFER_DIR}
       - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
   node-calgary:
     container_name: fedbiomed-vpn-node-calgary-${FBM_CONTAINER_INSTANCE_ID:-unknown}
@@ -243,12 +246,15 @@ services:
     volumes:
       - ./node-calgary/run_mounts/config:/config # contains VPN configurations
       - ./node-calgary/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+      - ./_dataset_configs:/_dataset_configs # contains JSON files for "fedbiomed node dataset add"
       - ${FL_PD_DATA_DIR}:${FL_PD_DATA_DIR}
       - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
       - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
       - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
       - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
       - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+      - ${QPN_MANIFEST_FILE}:${QPN_MANIFEST_FILE}
+      - ${QPN_FREESURFER_DIR}:${QPN_FREESURFER_DIR}
       - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
   node-mega:
     container_name: fedbiomed-vpn-node-mega-${FBM_CONTAINER_INSTANCE_ID:-unknown}
@@ -283,12 +289,15 @@ services:
     volumes:
       - ./node-mega/run_mounts/config:/config # contains VPN configurations
       - ./node-mega/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+      - ./_dataset_configs:/_dataset_configs # contains JSON files for "fedbiomed node dataset add"
       - ${FL_PD_DATA_DIR}:${FL_PD_DATA_DIR}
       - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
       - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
       - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
       - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
       - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+      - ${QPN_MANIFEST_FILE}:${QPN_MANIFEST_FILE}
+      - ${QPN_FREESURFER_DIR}:${QPN_FREESURFER_DIR}
       - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
   node-pad:
     container_name: fedbiomed-vpn-node-pad-${FBM_CONTAINER_INSTANCE_ID:-unknown}
@@ -323,12 +332,15 @@ services:
     volumes:
       - ./node-pad/run_mounts/config:/config # contains VPN configurations
       - ./node-pad/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+      - ./_dataset_configs:/_dataset_configs # contains JSON files for "fedbiomed node dataset add"
       - ${FL_PD_DATA_DIR}:${FL_PD_DATA_DIR}
       - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
       - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
       - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
       - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
       - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+      - ${QPN_MANIFEST_FILE}:${QPN_MANIFEST_FILE}
+      - ${QPN_FREESURFER_DIR}:${QPN_FREESURFER_DIR}
       - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
   node-ppmi:
     container_name: fedbiomed-vpn-node-ppmi-${FBM_CONTAINER_INSTANCE_ID:-unknown}
@@ -363,12 +375,15 @@ services:
     volumes:
       - ./node-ppmi/run_mounts/config:/config # contains VPN configurations
       - ./node-ppmi/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+      - ./_dataset_configs:/_dataset_configs # contains JSON files for "fedbiomed node dataset add"
       - ${FL_PD_DATA_DIR}:${FL_PD_DATA_DIR}
       - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
       - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
       - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
       - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
       - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+      - ${QPN_MANIFEST_FILE}:${QPN_MANIFEST_FILE}
+      - ${QPN_FREESURFER_DIR}:${QPN_FREESURFER_DIR}
       - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
   node-qpn:
     container_name: fedbiomed-vpn-node-qpn-${FBM_CONTAINER_INSTANCE_ID:-unknown}
@@ -403,12 +418,15 @@ services:
     volumes:
       - ./node-qpn/run_mounts/config:/config # contains VPN configurations
       - ./node-qpn/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+      - ./_dataset_configs:/_dataset_configs # contains JSON files for "fedbiomed node dataset add"
       - ${FL_PD_DATA_DIR}:${FL_PD_DATA_DIR}
       - ${CALGARY_DATA_DIR}:${CALGARY_DATA_DIR}
       - ${PAD_DATA_DIR}:${PAD_DATA_DIR}
       - ${PPMI_DATA_DIR}:${PPMI_DATA_DIR}
       - ${PPMI_DERIVATIVES_DIR}:${PPMI_DERIVATIVES_DIR}
       - ${PPMI_FS_7_3_2_DIR}:${PPMI_FS_7_3_2_DIR}
+      - ${QPN_MANIFEST_FILE}:${QPN_MANIFEST_FILE}
+      - ${QPN_FREESURFER_DIR}:${QPN_FREESURFER_DIR}
       - ${CONTAINER_STORE_DIR}:${CONTAINER_STORE_DIR}
 
   #
