@@ -29,6 +29,7 @@ from ._simple_dataset import (
     MnistDataset,
 )
 from ._tabular_dataset import TabularDataset
+from ._nipoppy_dataset import NipoppyDataset
 
 DATASET_CLASSES_PER_TYPE = {
     DatasetTypes.CUSTOM: CustomDataset,
@@ -37,6 +38,7 @@ DATASET_CLASSES_PER_TYPE = {
     DatasetTypes.MEDNIST: MedNistDataset,
     DatasetTypes.DEFAULT: MnistDataset,
     DatasetTypes.TABULAR: TabularDataset,
+    DatasetTypes.NIPOPPY: NipoppyDataset,
 }
 
 
@@ -94,6 +96,11 @@ REGISTRY_CONTROLLERS = {
         ControllerParametersBase,
         DATASET_CLASSES_PER_TYPE[DatasetTypes.CUSTOM],
     ),
+    DatasetTypes.NIPOPPY: (
+        CustomController,
+        ControllerParametersBase,
+        DATASET_CLASSES_PER_TYPE[DatasetTypes.NIPOPPY],
+    )
 }
 
 
