@@ -22,6 +22,7 @@ from ._simple_dataset import (
     MnistDataset,
 )
 from ._tabular_dataset import TabularDataset
+from ._nipoppy_dataset import NipoppyDataset
 
 __all__ = [
     "Dataset",
@@ -32,6 +33,7 @@ __all__ = [
     "MnistDataset",
     "NativeDataset",
     "TabularDataset",
+    "NipoppyDataset",
     "DATASET_CLASSES_PER_TYPE",
     "REGISTRY_CONTROLLERS",
     "ControllerParametersBase",

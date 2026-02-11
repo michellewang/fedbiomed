@@ -128,6 +128,13 @@ def add_database(
                 # Existence check
                 if not path.exists():
                     raise FedbiomedDatasetError(f"Path not found: {path}")
+                
+            elif data_type == "nipoppy":
+                path = Path(input("Path to the dataset: ")).resolve()
+                # Existence check
+                if not path.exists():
+                    raise FedbiomedDatasetError(f"Path not found: {path}")
+
 
             else:
                 path = validated_path_input(data_type)
