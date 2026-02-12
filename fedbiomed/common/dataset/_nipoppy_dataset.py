@@ -25,6 +25,7 @@ class NipoppyDataset(Dataset):
         derivatives: List[Tuple[str, str, str]],
         transform: Optional[Callable[[pd.Series], pd.Series]] = None,
         target_transform: Optional[Callable[[float], float]] = None,
+        df_transforms: Optional[List[Callable[[pd.DataFrame], pd.DataFrame]]] = None,
     ) -> None:
         """Initialize the NipoppyDataset."""
         self.target = target
@@ -32,6 +33,7 @@ class NipoppyDataset(Dataset):
         self.derivatives = derivatives
         self.transform = transform
         self.target_transform = target_transform
+        self.df_transforms = df_transforms or []
 
     def complete_initialization(
         self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
@@ -95,6 +97,9 @@ class NipoppyDataset(Dataset):
             phenotypes=self.phenotypes,
             derivatives=self.derivatives,
         )
+
+        for df_transform in self.df_transforms:
+            df = df_transform(df)
 
         self.df: pd.DataFrame = df
         self.y = self.df[[self.target]]
