@@ -1,17 +1,14 @@
 {
-    "SUBSTITUTIONS": {
-        "[[NIPOPPY_DPATH_CONTAINERS]]": "[[NIPOPPY_DPATH_ROOT]]/containers",
-        "[[HPC_ACCOUNT_NAME]]": ""
-    },
-    "DICOM_DIR_PARTICIPANT_FIRST": true,
     "CONTAINER_CONFIG": {
         "COMMAND": "apptainer",
+        "BIND_PATHS": [],
+        "ENV_VARS": {
+            "PYTHONUNBUFFERED": "1"
+        },
         "ARGS": [
             "--cleanenv"
         ],
-        "ENV_VARS": {
-            "PYTHONUNBUFFERED": "1"
-        }
+        "INHERIT": true
     },
     "HPC_PREAMBLE": [
         "# (These lines can all be removed if not using HPC functionality.)",
@@ -23,10 +20,22 @@
         "# ========== Set environment variables ==========",
         "export PYTHONUNBUFFERED=1"
     ],
+    "DICOM_DIR_MAP_FILE": null,
+    "DICOM_DIR_PARTICIPANT_FIRST": true,
+    "SUBSTITUTIONS": {
+        "[[NIPOPPY_DPATH_CONTAINERS]]": "[[NIPOPPY_DPATH_ROOT]]/containers",
+        "[[HPC_ACCOUNT_NAME]]": ""
+    },
     "PIPELINE_VARIABLES": {
         "BIDSIFICATION": {},
         "PROCESSING": {},
-        "EXTRACTION": {}
+        "EXTRACTION": {
+            "fs_stats": {
+                "0.2.1": {
+                    "FREESURFER_LICENSE_FILE": null
+                }
+            }
+        }
     },
     "CUSTOM": {
         "FL_PD": {
