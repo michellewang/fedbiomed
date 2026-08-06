@@ -15,6 +15,7 @@ from ._medical_folder_controller import (
 from ._mednist_controller import MedNistController
 from ._mnist_controller import MnistController
 from ._tabular_controller import TabularController
+from ._nipoppy_controller import NipoppyController
 
 __all__ = [
     "Controller",
@@ -25,4 +26,5 @@ __all__ = [
     "MnistController",
     "TabularController",
     "CustomController",
+    "NipoppyController",
 ]

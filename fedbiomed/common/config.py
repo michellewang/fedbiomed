@@ -72,6 +72,7 @@ class Config(metaclass=ABCMeta):
             root: Root directory for the component.
         """
         self._cfg = configparser.ConfigParser()
+        logger.set_application_logs(root_path=root)
         # Set up security logging for config operations
         # This ensures security events are captured even before Node/Researcher initialization
         logger.set_security_logs(root_path=root)
@@ -218,8 +219,16 @@ class Config(metaclass=ABCMeta):
 
         return self._cfg.getint(section, key, **kwargs)
 
+    def getpath(self, section, key, **kwargs) -> str:
+        """Absolute path for a config value stored relative to the config folder"""
+        return os.path.abspath(
+            os.path.join(
+                self.root, CONFIG_FOLDER_NAME, self.get(section, key, **kwargs)
+            )
+        )
+
     def _get(self, section, key, **kwargs) -> str:
-        """ """
+        """Returns value for given key and section"""
         environ_key = f"FBM_{section.upper()}_{key.upper()}"
         return os.environ.get(environ_key, self._cfg.get(section, key, **kwargs))
 

@@ -17,7 +17,6 @@ from typing import Dict, List
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
-    CONFIG_FOLDER_NAME,
     DB_FOLDER_NAME,
     ComponentType,
     __version__,
@@ -64,22 +63,11 @@ class ComponentDirectoryAction(ABC, argparse.Action):
 
     _component: ComponentType
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # Sets config by default if option string for config is not present.
-        # The default is defined by the argument parser.
-        if (
-            not set(self.option_strings).intersection(set(sys.argv))
-            and not set(["--help", "-h"]).intersection(set(sys.argv))
-            and len(sys.argv) > 2
-        ):
-            self._create_config(self.default)
-
-        super().__init__(*args, **kwargs)
-
     def __call__(self, parser, namespace, values: str, option_string=None) -> None:
         """When argument is called"""
+
+        if values is None:
+            values = self.default
 
         if not set(["--help", "-h"]).intersection(set(sys.argv)):
             self._create_config(values)
@@ -136,6 +124,7 @@ class CommonCLI:
         self._certificate_manager: CertificateManager = CertificateManager()
         self._description: str = ""
         self._args = None
+        self._path_action: ComponentDirectoryAction | None = None
         if os.environ.get("FBM_DEBUG", "").lower() in ("1", "true", "yes"):
             logger.setLevel("DEBUG")
         else:
@@ -442,11 +431,7 @@ class CommonCLI:
         Args:
             args: Parser arguments
         """
-        self._certificate_manager.set_db(
-            db_path=os.path.join(
-                self.config.root, "etc", self.config.get("default", "db")
-            )
-        )
+        self._certificate_manager.set_db(db_path=self.config.getpath("default", "db"))
 
         try:
             self._certificate_manager.register_certificate(
@@ -467,19 +452,11 @@ class CommonCLI:
         """Lists saved certificates"""
         print(f"{GRN}Listing registered certificates...{NC}")
 
-        self._certificate_manager.set_db(
-            db_path=os.path.join(
-                self.config.root, "etc", self.config.get("default", "db")
-            )
-        )
+        self._certificate_manager.set_db(db_path=self.config.getpath("default", "db"))
         self._certificate_manager.list(verbose=True)
 
     def _delete_certificate(self, args: argparse.Namespace):
-        self._certificate_manager.set_db(
-            db_path=os.path.join(
-                self.config.root, "etc", self.config.get("default", "db")
-            )
-        )
+        self._certificate_manager.set_db(db_path=self.config.getpath("default", "db"))
         certificates = self._certificate_manager.list(verbose=False)
         options = [d["party_id"] for d in certificates]
         msg = "Select the certificate to delete:\n"
@@ -503,13 +480,7 @@ class CommonCLI:
     def _prepare_certificate_for_registration(self, args: argparse.Namespace):
         """Prints instruction to registration of the certificate by the other parties"""
 
-        certificate = read_file(
-            os.path.join(
-                self.config.root,
-                CONFIG_FOLDER_NAME,
-                self.config.get("certificate", "public_key"),
-            )
-        )
+        certificate = read_file(self.config.getpath("certificate", "public_key"))
 
         print("Hi There! \n\n")
         print("Please find following certificate to register \n")
@@ -543,6 +514,8 @@ class CommonCLI:
         """
         args, unknown_args = self._parser.parse_known_args(args_)
         if hasattr(args, "func"):
+            if self._path_action is not None and getattr(self, "config", None) is None:
+                self._path_action._create_config(self._path_action.default)
             specs = get_method_spec(args.func)
             if specs:
                 # If default function has 2 arguments

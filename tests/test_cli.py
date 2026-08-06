@@ -1,15 +1,11 @@
 import argparse
-import configparser
 import io
 import json
 import os
-import shutil
 import signal
 import sys
-import tempfile
 import unittest
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
@@ -23,15 +19,14 @@ from fedbiomed.node.cli import (
     NodeCLI,
     NodeControl,
     TrainingPlanArgumentParser,
-    _node_signal_trigger_term,
     intro,
-    start_node,
 )
 from fedbiomed.node.cli_utils._medical_folder_dataset import (
     add_medical_folder_dataset_from_cli,
     get_map_modalities2folders_from_cli,
 )
-from fedbiomed.node.config import NodeConfig
+from fedbiomed.node.node import NodeContext
+from fedbiomed.node.node_pm import _node_signal_trigger_term, _start_node_process
 
 # ============================================================================
 # SHARED FIXTURES AND HELPERS
@@ -40,19 +35,8 @@ from fedbiomed.node.config import NodeConfig
 
 @pytest.fixture
 def temp_medical_data():
-    """Fixture to create temporary test data."""
-    temp_dir = tempfile.mkdtemp()
-    test_path = Path(temp_dir) / "medical_data"
-    test_path.mkdir()
-
-    # Create a mock CSV file path
-    csv_path = Path(temp_dir) / "demographics.csv"
-    csv_path.touch()
-
-    yield temp_dir, str(test_path), str(csv_path)
-
-    # Cleanup
-    shutil.rmtree(temp_dir)
+    """Fixture to provide fake test data paths."""
+    return "/fake/tmp", "/fake/medical_data", "/fake/demographics.csv"
 
 
 @pytest.fixture
@@ -105,7 +89,7 @@ class TestTrainingPlanArgumentParser(unittest.TestCase):
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
         self.tp_arg_pars = TrainingPlanArgumentParser(self.subparsers)
-        self.tp_arg_pars._node = MagicMock()
+        self.tp_arg_pars._context = MagicMock()
 
     def test_01_training_plan_argument_parser_initialize(self):
         """Tests training plan parser initialization"""
@@ -164,8 +148,8 @@ class TestDatasetArgumentParser(unittest.TestCase):
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
         self.dataset_arg_pars = DatasetArgumentParser(self.subparsers)
-        self.node = MagicMock()
-        self.dataset_arg_pars._node = self.node
+        self.context = MagicMock()
+        self.dataset_arg_pars._context = self.context
 
     def test_01_dataset_argument_parser_initialize(self):
         """Test initialization"""
@@ -198,7 +182,7 @@ class TestDatasetArgumentParser(unittest.TestCase):
             args = self.parser.parse_args(["dataset", "add", "--mnist", "test"])
             self.dataset_arg_pars.add(args)
             m.assert_called_once_with(
-                self.node.dataset_manager, interactive=False, path="test"
+                self.context.dataset_manager, interactive=False, path="test"
             )
             m.reset_mock()
 
@@ -208,25 +192,27 @@ class TestDatasetArgumentParser(unittest.TestCase):
         with patch.object(fedbiomed.node.cli, "delete_database") as m:
             args = self.parser.parse_args(["dataset", "delete"])
             self.dataset_arg_pars.delete(args)
-            m.assert_called_once_with(self.node.dataset_manager)
+            m.assert_called_once_with(self.context.dataset_manager)
 
         with patch.object(fedbiomed.node.cli, "delete_all_database") as m:
             args = self.parser.parse_args(["dataset", "delete", "--all"])
             self.dataset_arg_pars.delete(args)
-            m.assert_called_once_with(self.node.dataset_manager)
+            m.assert_called_once_with(self.context.dataset_manager)
             m.reset_mock()
 
         with patch.object(fedbiomed.node.cli, "delete_database") as m:
             args = self.parser.parse_args(["dataset", "delete", "--mnist"])
             self.dataset_arg_pars.delete(args)
-            m.assert_called_once_with(self.node.dataset_manager, interactive=False)
+            m.assert_called_once_with(self.context.dataset_manager, interactive=False)
 
     def test_04_dataset_argument_parser_list(self):
         self.dataset_arg_pars.initialize()
         args = self.parser.parse_args(["dataset", "list"])
         self.dataset_arg_pars.list(args)
 
-        self.node.dataset_manager.list_my_datasets.assert_called_once_with(verbose=True)
+        self.context.dataset_manager.list_my_datasets.assert_called_once_with(
+            verbose=True
+        )
 
     def test_05_dataset_argument_parser_add_file(self):
         """Tests add() dispatches to _add_dataset_from_file when --file is given."""
@@ -241,13 +227,13 @@ class TestDatasetArgumentParser(unittest.TestCase):
     def test_06_dataset_argument_parser_add_mnist_default_path(self):
         """Tests add() uses node data folder when --mnist is given without a value."""
         self.dataset_arg_pars.initialize()
-        self.node.config.root = "/test/root"
+        self.context.config.root = "/test/root"
         with patch.object(fedbiomed.node.cli, "add_database") as m:
             args = self.parser.parse_args(["dataset", "add", "--mnist"])
             self.dataset_arg_pars.add(args)
             expected_path = os.path.join("/test/root", NODE_DATA_FOLDER)
             m.assert_called_once_with(
-                self.node.dataset_manager, interactive=False, path=expected_path
+                self.context.dataset_manager, interactive=False, path=expected_path
             )
 
     def test_07_add_dataset_from_file_absolute_path(self):
@@ -260,14 +246,12 @@ class TestDatasetArgumentParser(unittest.TestCase):
             "tags": "#test",
             "name": "TestData",
         }
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(dataset_json, f)
-            json_path = f.name
-        try:
+        json_path = "/fake/dataset.json"
+        with patch("builtins.open", mock_open(read_data=json.dumps(dataset_json))):
             with patch.object(fedbiomed.node.cli, "add_database") as m:
                 self.dataset_arg_pars._add_dataset_from_file(path=json_path)
                 m.assert_called_once_with(
-                    self.node.dataset_manager,
+                    self.context.dataset_manager,
                     interactive=False,
                     path="/absolute/data/path",
                     data_type="csv",
@@ -276,13 +260,11 @@ class TestDatasetArgumentParser(unittest.TestCase):
                     name="TestData",
                     dataset_parameters=None,
                 )
-        finally:
-            os.unlink(json_path)
 
     def test_08_add_dataset_from_file_relative_path(self):
         """Tests _add_dataset_from_file prepends config.root for relative paths."""
         self.dataset_arg_pars.initialize()
-        self.node.config.root = "/test/root"
+        self.context.config.root = "/test/root"
         dataset_json = {
             "path": "relative/data",
             "data_type": "csv",
@@ -290,17 +272,13 @@ class TestDatasetArgumentParser(unittest.TestCase):
             "tags": "#test",
             "name": "RelData",
         }
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(dataset_json, f)
-            json_path = f.name
-        try:
+        json_path = "/fake/dataset.json"
+        with patch("builtins.open", mock_open(read_data=json.dumps(dataset_json))):
             with patch.object(fedbiomed.node.cli, "add_database") as m:
                 self.dataset_arg_pars._add_dataset_from_file(path=json_path)
                 call_kwargs = m.call_args[1]
                 self.assertIn("/test/root", call_kwargs["path"])
                 self.assertIn("relative", call_kwargs["path"])
-        finally:
-            os.unlink(json_path)
 
     def test_09_add_dataset_from_file_env_var_path(self):
         """Tests _add_dataset_from_file expands environment variable in path."""
@@ -312,29 +290,21 @@ class TestDatasetArgumentParser(unittest.TestCase):
             "tags": "#test",
             "name": "EnvData",
         }
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(dataset_json, f)
-            json_path = f.name
-        try:
+        json_path = "/fake/dataset.json"
+        with patch("builtins.open", mock_open(read_data=json.dumps(dataset_json))):
             with patch.dict(os.environ, {"FBM_TEST_DATA": "/env/path"}):
                 with patch.object(fedbiomed.node.cli, "add_database") as m:
                     self.dataset_arg_pars._add_dataset_from_file(path=json_path)
                     call_kwargs = m.call_args[1]
                     self.assertIn("/env/path", call_kwargs["path"])
-        finally:
-            os.unlink(json_path)
 
     def test_10_add_dataset_from_file_invalid_json(self):
         """Tests _add_dataset_from_file exits when the file is not valid JSON."""
         self.dataset_arg_pars.initialize()
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            f.write("not valid json {{{")
-            json_path = f.name
-        try:
+        json_path = "/fake/dataset.json"
+        with patch("builtins.open", mock_open(read_data="not valid json {{{")):
             with self.assertRaises(SystemExit):
                 self.dataset_arg_pars._add_dataset_from_file(path=json_path)
-        finally:
-            os.unlink(json_path)
 
 
 class TestNodeControl(unittest.TestCase):
@@ -344,8 +314,8 @@ class TestNodeControl(unittest.TestCase):
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
         self.control = NodeControl(self.subparsers)
-        self.node = MagicMock()
-        self.control._node = self.node
+        self.context = MagicMock()
+        self.control._context = self.context
 
     def test_01_node_control_initialize(self):
         """Tests initialize"""
@@ -362,67 +332,59 @@ class TestNodeControl(unittest.TestCase):
             "--gpu" in self.subparsers.choices["start"]._option_string_actions
         )  # noqa
 
-    @patch("fedbiomed.node.cli.Process")
-    def test_02_node_control_start(self, process):
-        self.control.initialize()
-        args = self.parser.parse_args(["start"])
-        os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
-
-        self.control.start(args)
-        process.assert_called_once()
-
-        process.return_value.join.side_effect = [KeyboardInterrupt, None]
-        process.return_value.is_alive.side_effect = [True, False, True, True, False]
-        with self.assertRaises(SystemExit):
-            self.control.start(args)
-
-    @patch("fedbiomed.node.cli.Process")
-    def test_04_node_control_start_gpu_and_debug_flags(self, mock_process):
-        """Tests GPU and debug flags are correctly forwarded in node_args."""
-        self.control.initialize()
-        os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
-
-        args = self.parser.parse_args(
-            ["start", "--gpu", "--gpu-num", "2", "--gpu-only", "--debug"]
-        )
-        self.control.start(args)
-
-        node_args = mock_process.call_args[1]["args"][1]
-        self.assertTrue(node_args["gpu"])
-        self.assertEqual(node_args["gpu_num"], 2)
-        self.assertTrue(node_args["gpu_only"])
-        self.assertTrue(node_args["debug"])
-
-    @patch("fedbiomed.node.cli.Node", autospec=True)
-    def test_03_node_control__start(self, mock_node):
+    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
+    @patch("fedbiomed.node.node_pm.Node", autospec=True)
+    def test_03_node_control__start(self, mock_node, mock_node_config):
         """Tests node start"""
-
-        cfg = configparser.ConfigParser()
-        cfg["security"] = {
-            "training_plan_apprival": "true",
-            "allow_default_training_plan": "true",
-        }
-        cfg["default"] = {"id": "test-id"}
-
+        mock_node_config.return_value = MagicMock()
+        mock_node.return_value.config.get.return_value = "test-node"
+        mock_node.return_value.config.getbool.return_value = False
         mock_node.return_value.tp_security_manager = MagicMock()
 
-        with tempfile.TemporaryDirectory() as temp_:
-            config = NodeConfig(temp_)
-            config._cfg = cfg
-            args = {"gpu": False}
-            config._cfg["security"]["training_plan_approval"] = "false"
-            start_node("config.ini", args)
-            mock_node.return_value.task_manager.assert_called_once()
+        args = {"gpu": False}
+        _start_node_process("config.ini", args)
+        mock_node.return_value.task_manager.assert_called_once()
 
-            with patch.object(fedbiomed.node.cli, "logger") as logger:
-                mock_node.return_value.task_manager.side_effect = FedbiomedError
-                start_node("config.ini", args)
-                logger.critical.assert_called_once()
-                logger.critical.reset_mock()
+        with patch("fedbiomed.node.node_pm.logger") as logger:
+            mock_node.return_value.task_manager.side_effect = FedbiomedError
+            _start_node_process("config.ini", args)
+            logger.critical.assert_called_once()
+            logger.critical.reset_mock()
 
-                mock_node.return_value.task_manager.side_effect = Exception
-                start_node("config.ini", args)
-                logger.critical.assert_called_once()
+            mock_node.return_value.task_manager.side_effect = Exception
+            _start_node_process("config.ini", args)
+            logger.critical.assert_called_once()
+
+    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
+    @patch("fedbiomed.node.node_pm.Node", autospec=True)
+    def test_04_node_control__start_reports_failure_to_build_node(
+        self, mock_node, mock_node_config
+    ):
+        """Tests that a node that cannot be built is reported, not raised"""
+        mock_node_config.return_value = MagicMock()
+        mock_node.side_effect = FedbiomedError(
+            "FB619: no researcher certificate is registered"
+        )
+
+        with patch("fedbiomed.node.node_pm.logger") as logger:
+            _start_node_process("config.ini", {"gpu": False})
+
+            logger.critical.assert_called_once()
+            self.assertIn("FB619", logger.critical.call_args[0][0])
+
+    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
+    @patch("fedbiomed.node.node_pm.Node", autospec=True)
+    def test_05_node_control__start_unexpected_failure_to_build_node(
+        self, mock_node, mock_node_config
+    ):
+        """Tests reporting an unexpected error when there is no node to report with"""
+        mock_node_config.return_value = MagicMock()
+        mock_node.side_effect = Exception("unexpected")
+
+        with patch("fedbiomed.node.node_pm.logger") as logger:
+            _start_node_process("config.ini", {"gpu": False})
+
+            logger.critical.assert_called_once()
 
 
 class TestGUIControl(unittest.TestCase):
@@ -432,8 +394,8 @@ class TestGUIControl(unittest.TestCase):
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
         self.control = GUIControl(self.subparsers)
-        self.node = MagicMock()
-        self.control._node = self.node
+        self.context = MagicMock()
+        self.control._context = self.context
 
     def test_01_gui_control_initialize(self):
         """Tests gui subparser and all its start options are registered."""
@@ -466,7 +428,7 @@ class TestGUIControl(unittest.TestCase):
     ):
         """Tests forward() launches gunicorn when development mode is off."""
         self.control.initialize()
-        self.node.config.root = "/node/root"
+        self.context.config.root = "/node/root"
         mock_importlib.import_module.return_value.__file__ = (
             "/path/to/fedbiomed_gui/__init__.py"
         )
@@ -486,7 +448,12 @@ class TestGUIControl(unittest.TestCase):
 
         mock_subprocess.Popen.assert_called_once()
         command = mock_subprocess.Popen.call_args[0][0]
+        env = mock_subprocess.Popen.call_args[1]["env"]
         self.assertIn("gunicorn", command)
+        self.assertEqual(env["DATA_PATH"], "/test/data")
+        self.assertEqual(env["FBM_NODE_COMPONENT_ROOT"], "/some/fedbiomed/path")
+        self.assertNotIn("FBM_START_NODE_WITH_GUI", env)
+        self.assertNotIn("FBM_NODE_START_ARGS", env)
 
     @patch("fedbiomed.node.cli.subprocess")
     @patch("fedbiomed.node.cli.importlib")
@@ -496,7 +463,7 @@ class TestGUIControl(unittest.TestCase):
     ):
         """Tests forward() uses flask when development mode is on."""
         self.control.initialize()
-        self.node.config.root = "/node/root"
+        self.context.config.root = "/node/root"
         mock_importlib.import_module.return_value.__file__ = (
             "/path/to/fedbiomed_gui/__init__.py"
         )
@@ -525,7 +492,7 @@ class TestGUIControl(unittest.TestCase):
     ):
         """Tests forward() passes --keyfile/--certfile to gunicorn when SSL is configured."""
         self.control.initialize()
-        self.node.config.root = "/node/root"
+        self.context.config.root = "/node/root"
         mock_importlib.import_module.return_value.__file__ = (
             "/path/to/fedbiomed_gui/__init__.py"
         )
@@ -551,7 +518,7 @@ class TestGUIControl(unittest.TestCase):
     def test_05_gui_control_forward_invalid_data_folder(self, mock_isdir):
         """Tests forward() raises FedbiomedError when the data folder does not exist."""
         self.control.initialize()
-        self.node.config.root = "/node/root"
+        self.context.config.root = "/node/root"
 
         args = argparse.Namespace(
             path="/some/fedbiomed/path",
@@ -568,29 +535,37 @@ class TestGUIControl(unittest.TestCase):
             self.control.forward(args, [])
 
 
-class TestStartNode(unittest.TestCase):
-    """Tests for the start_node function."""
+class TestStartNodeProcess(unittest.TestCase):
+    """Tests for the _start_node_process function."""
 
-    @patch("fedbiomed.node.cli.Node")
-    def test_01_start_node_training_plan_approval_with_default_plans(self, mock_node):
+    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
+    @patch("fedbiomed.node.node_pm.Node")
+    def test_01_start_node_training_plan_approval_with_default_plans(
+        self, mock_node, mock_node_config
+    ):
         """Tests tp_security_manager methods are called when approval + default plans are enabled."""
+        mock_node_config.return_value = MagicMock()
         mock_node.return_value.config.getbool.return_value = True
 
-        start_node("config.ini", {"gpu": False})
+        _start_node_process("config.ini", {"gpu": False})
 
         mock_node.return_value.tp_security_manager.check_hashes_for_registered_training_plans.assert_called_once()
         mock_node.return_value.tp_security_manager.register_update_default_training_plans.assert_called_once()
 
-    @patch("fedbiomed.node.cli.Node")
-    def test_02_start_node_training_plan_approval_no_default_plans(self, mock_node):
+    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
+    @patch("fedbiomed.node.node_pm.Node")
+    def test_02_start_node_training_plan_approval_no_default_plans(
+        self, mock_node, mock_node_config
+    ):
         """Tests register_update_default_training_plans is NOT called when allow_default_training_plans is False."""
+        mock_node_config.return_value = MagicMock()
 
         def _getbool(section, key):
             return key == "training_plan_approval"
 
         mock_node.return_value.config.getbool.side_effect = _getbool
 
-        start_node("config.ini", {"gpu": False})
+        _start_node_process("config.ini", {"gpu": False})
 
         mock_node.return_value.tp_security_manager.check_hashes_for_registered_training_plans.assert_called_once()
         mock_node.return_value.tp_security_manager.register_update_default_training_plans.assert_not_called()
@@ -599,20 +574,51 @@ class TestStartNode(unittest.TestCase):
 class TestNodeCLI(unittest.TestCase):
     """Tests main NodeCLI"""
 
+    @patch("fedbiomed.node.node.TrainingPlanSecurityManager")
+    @patch("fedbiomed.node.node.DatasetManager")
+    @patch("fedbiomed.node.cli.node_component.initiate")
     @patch("builtins.input")
-    def test_01_node_cli_init(self, input_patch):
+    def test_01_node_cli_init(
+        self, input_patch, mock_initiate, mock_dataset_manager, mock_tp_manager
+    ):
         """Tests initialization"""
         input_patch.return_value = "y"
-        # import sys
-        # sys.argv.append('-y')
-        # remove any `fbm-node` folder already existing
-        shutil.rmtree("fbm-node", ignore_errors=True)
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            self.node_cli = NodeCLI()
-            self.node_cli.parse_args(
-                ["--path", os.path.join(str(tmpdirname), "fbm-node"), "dataset", "list"]
-            )
-        # sys.argv.remove('-y')
+        mock_config = MagicMock()
+        mock_config.get.return_value = "test-node-id"
+        mock_initiate.return_value = mock_config
+        mock_dataset_manager.return_value.list_my_datasets.return_value = []
+
+        self.node_cli = NodeCLI()
+        self.node_cli.parse_args(["--path", "/fake/fbm-node", "dataset", "list"])
+
+        mock_initiate.assert_called_once_with(root=os.path.abspath("/fake/fbm-node"))
+        mock_dataset_manager.assert_called_once()
+        mock_dataset_manager.return_value.list_my_datasets.assert_called_once_with(
+            verbose=True
+        )
+
+
+class TestNodeContext(unittest.TestCase):
+    """Tests the local state the node CLI acts on"""
+
+    @patch("fedbiomed.node.node.TrainingPlanSecurityManager")
+    @patch("fedbiomed.node.node.DatasetManager")
+    def setUp(self, mock_dataset, mock_tp):
+        self.config = MagicMock()
+        self.mock_dataset = mock_dataset
+        self.mock_tp = mock_tp
+        self.context = NodeContext(self.config)
+
+    def test_01_exposes_config(self):
+        """Tests that the context exposes the component configuration"""
+        self.assertIs(self.context.config, self.config)
+
+    def test_02_builds_both_managers_at_construction(self):
+        """Tests that both managers are built when the context is created"""
+        self.mock_dataset.assert_called_once()
+        self.mock_tp.assert_called_once()
+        self.assertIs(self.context.dataset_manager, self.mock_dataset.return_value)
+        self.assertIs(self.context.tp_security_manager, self.mock_tp.return_value)
 
 
 # ============================================================================
@@ -649,7 +655,7 @@ def test_add_medical_folder_dataset_no_demographics(
     assert result_dlp is None
 
     # Verify mocks were called correctly
-    mock_validated_path.assert_called_once_with(type="dir")
+    mock_validated_path.assert_called_once_with(type="dir", initialdir=None)
     mock_controller_class.assert_called_once_with(test_path)
     mock_input.assert_called_once_with(
         "\nWould you like to select a demographics csv file? [y/N]\n"
@@ -858,6 +864,11 @@ def test_get_map_modalities2folders_from_cli_scenarios(
     assert dlb.map == expected_map
 
 
+# ============================================================================
+# END --- PYTEST TESTS FOR MEDICAL FOLDER DATASET CLI UTILITIES
+# ============================================================================
+
+
 def test_intro():
     """Tests intro() prints the active node ID from the environment."""
     os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
@@ -874,6 +885,194 @@ def test_node_signal_trigger_term():
     with patch("os.kill") as mock_kill:
         _node_signal_trigger_term()
     mock_kill.assert_called_once_with(os.getpid(), signal.SIGTERM)
+
+
+@pytest.mark.parametrize(
+    "argv, expected_node_args",
+    [
+        (
+            ["start"],
+            {
+                "gpu": False,
+                "gpu_num": 1,
+                "gpu_only": False,
+                "debug": False,
+            },
+        ),
+        (
+            ["start", "--force"],
+            {
+                "gpu": False,
+                "gpu_num": 1,
+                "gpu_only": False,
+                "debug": False,
+            },
+        ),
+        (
+            ["start", "--gpu", "--gpu-num", "2", "--debug"],
+            {
+                "gpu": True,
+                "gpu_num": 2,
+                "gpu_only": False,
+                "debug": True,
+            },
+        ),
+        (
+            ["start", "--gpu-only"],
+            {
+                "gpu": True,
+                "gpu_num": 1,
+                "gpu_only": True,
+                "debug": False,
+            },
+        ),
+        (
+            [
+                "start",
+                "--gpu",
+                "--gpu-num",
+                "2",
+                "--gpu-only",
+                "--debug",
+                "--background",
+            ],
+            {
+                "gpu": True,
+                "gpu_num": 2,
+                "gpu_only": True,
+                "debug": True,
+            },
+        ),
+    ],
+)
+def test_node_control_start_builds_node_args_and_waits(
+    mocker,
+    argv,
+    expected_node_args,
+):
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+
+    control = NodeControl(subparsers)
+    control.initialize()
+
+    context = MagicMock()
+    control._context = context
+
+    mock_intro = mocker.patch("fedbiomed.node.cli.intro")
+
+    mock_node_process_manager_cls = mocker.patch(
+        "fedbiomed.node.cli.NodeProcessManager"
+    )
+    mock_node_process_manager = mock_node_process_manager_cls.return_value
+
+    args = parser.parse_args(argv)
+
+    control.start(args)
+
+    mock_intro.assert_called_once_with()
+    mock_node_process_manager_cls.assert_called_once_with(context.config)
+
+    mock_node_process_manager.start.assert_called_once_with(
+        node_args=expected_node_args,
+        background=args.background,
+        actor={"source": "cli"},
+        force=args.force,
+    )
+
+    mock_node_process_manager.stop.assert_not_called()
+
+
+def test_node_control_start_keyboard_interrupt_stops_node(mocker):
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+
+    control = NodeControl(subparsers)
+    control.initialize()
+
+    context = MagicMock()
+    control._context = context
+
+    mock_intro = mocker.patch("fedbiomed.node.cli.intro")
+
+    mock_node_process_manager_cls = mocker.patch(
+        "fedbiomed.node.cli.NodeProcessManager"
+    )
+    mock_node_process_manager = mock_node_process_manager_cls.return_value
+    mock_node_process_manager.start.side_effect = KeyboardInterrupt
+
+    args = parser.parse_args(["start"])
+
+    with pytest.raises(SystemExit) as exc:
+        control.start(args)
+
+    assert exc.value.code == 0
+
+    mock_intro.assert_called_once_with()
+    mock_node_process_manager_cls.assert_called_once_with(context.config)
+
+    mock_node_process_manager.start.assert_called_once_with(
+        node_args={
+            "gpu": False,
+            "gpu_num": 1,
+            "gpu_only": False,
+            "debug": False,
+        },
+        background=False,
+        actor={"source": "cli"},
+        force=False,
+    )
+
+    mock_node_process_manager.stop.assert_called_once_with(
+        actor={"source": "cli"},
+        reason="keyboard_interrupt",
+    )
+
+
+@pytest.mark.parametrize(
+    "argv, expected_node_args, expected_background",
+    [
+        (["restart"], {}, None),
+        (
+            ["restart", "--gpu", "--gpu-num", "2", "--debug", "--background"],
+            {"gpu": True, "gpu_num": 2, "debug": True},
+            True,
+        ),
+        (
+            ["restart", "--gpu-only"],
+            {"gpu": True, "gpu_only": True},
+            None,
+        ),
+    ],
+)
+def test_node_control_restart_passes_only_supplied_overrides(
+    mocker,
+    argv,
+    expected_node_args,
+    expected_background,
+):
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+
+    control = NodeControl(subparsers)
+    control.initialize()
+
+    context = MagicMock()
+    control._context = context
+
+    mock_node_process_manager_cls = mocker.patch(
+        "fedbiomed.node.cli.NodeProcessManager"
+    )
+    mock_node_process_manager = mock_node_process_manager_cls.return_value
+
+    control.restart(parser.parse_args(argv))
+
+    mock_node_process_manager.restart.assert_called_once_with(
+        node_args=expected_node_args,
+        background=expected_background,
+        actor={"source": "cli"},
+        reason="cli_restart_command",
+    )
 
 
 if __name__ == "__main__":
