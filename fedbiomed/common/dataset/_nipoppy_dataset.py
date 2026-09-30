@@ -1,0 +1,110 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
+from typing import Any, Callable, Dict, Optional, Tuple
+import pandas as pd
+import types
+import torch
+
+from fedbiomed.common.dataset._dataset import Dataset
+from fedbiomed.common.dataset_controller._nipoppy_controller import NipoppyController
+from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.logger import logger
+
+
+class NipoppyDataset(Dataset):
+    _controller_cls: type = NipoppyController 
+
+    _native_to_framework = {
+        DataReturnFormat.SKLEARN: lambda x: x.values,
+        DataReturnFormat.TORCH: lambda x: torch.from_numpy(x.values),
+    }
+
+    # columns
+    COL_PARTICIPANT_ID = NipoppyController.COL_PARTICIPANT_ID
+    COL_SESSION_ID = NipoppyController.COL_SESSION_ID
+
+    def __init__(
+        self,
+        phenotypes,
+        derivatives,
+        target,
+        session_filters,
+        drop_na: bool = True,
+        drop_na_kwargs: Optional[Dict[str, Any]] = None,
+        sample_level_transform: Optional[Callable] = None,
+        sample_level_target_transform: Optional[Callable] = None,
+        whole_df_level_transform: Optional[Callable] = None,
+    ) -> None:
+        """
+        """
+        self.phenotypes = phenotypes
+        self.derivatives = derivatives
+        self.transform = sample_level_transform
+        self.target_transform = sample_level_target_transform 
+        self.target = target
+        self.session_filters = session_filters
+        self._drop_na = drop_na
+        self._drop_na_kwargs = drop_na_kwargs
+        self._whole_df_level_transform = whole_df_level_transform
+
+        if not self._drop_na and drop_na_kwargs is not None:
+            logger.warning("drop_na is set to False but drop_na_kwargs is not None. drop_na_kwargs will be ignored.")
+    
+    def complete_initialization(
+        self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
+    ) -> None:
+        """Finalize initialization of object to be able to recover items
+
+        Args:
+            path: path to dataset
+            to_format: format associated to expected return format
+        """
+        controller_kwargs["session_filters"] = self.session_filters
+        controller_kwargs["drop_na"] = self._drop_na
+        controller_kwargs["drop_na_kwargs"] = self._drop_na_kwargs
+        controller_kwargs["whole_df_transform"] = self._whole_df_level_transform
+        self._init_controller(controller_kwargs=controller_kwargs)
+        self._to_format = to_format
+        if self._controller is not None and hasattr(self, "_complete_derivatives_initialization"):
+            self._complete_derivatives_initialization()
+
+    def __getitem__(self, idx) -> Tuple[pd.DataFrame, pd.DataFrame | None]:
+        target_ = self.target if self.target is not None else []
+        sample: pd.DataFrame = self._controller.get_sample(idx,
+                                                           phenotypes=self.phenotypes + target_,
+                                                           derivatives=self.derivatives)  # type: ignore
+        Y = sample[self.target] if self.target is not None else None
+        X = sample.drop(self.target) if self.target is not None else sample
+        X, Y = map(self._get_format_conversion_callable(), (X, Y))
+        X, Y = self._apply_transform(X, Y)
+        return X, Y
+
+    def _apply_transform(self, X, Y):
+        if self.transform is not None:
+            X = self.transform(X)
+        if self.target_transform is not None and Y is not None:
+            Y = self.target_transform(Y)
+        return X, Y
+
+    def get_metadata(self) -> Dict[str, Optional[Any]]:
+        """Returns metadata about the dataset.
+        Includes available phenotypes and installed pipelines.
+
+        Returns:
+            Dict[str, Optional[Any]]: Metadata about the dataset.
+        """
+        return self._controller.metadata if self._controller is not None else {}
+
+    def set_derivatives_initializer(self, derivatives_initializer: Callable) -> None:
+        """Sets the derivatives initializer method for the dataset. 
+        
+        This method will be called during complete_initialization to initialize derivatives,
+        after initializing the controller.
+        
+        Args:
+            derivatives_initializer: A callable that takes the dataset instance as an argument and initializes derivatives. 
+                                     The signature of this method MUST be: `def derivatives_initializer(dataset: NipoppyDataset) -> None`.
+        """
+        self._complete_derivatives_initialization = types.MethodType(derivatives_initializer, self)
+        
