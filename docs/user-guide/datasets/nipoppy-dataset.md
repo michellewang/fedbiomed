@@ -23,8 +23,9 @@ neuroimaging-clinical data. Please visit the [Nipoppy documentation](https://nip
     - **Targets must be phenotypes**: a derivative column cannot be used as target.
     - **Whole derivative files**: all columns of a selected file become input features, unless you remove them with a
       [dataframe transform](#transforms).
-    - **Not supported**: [Data Loading Plans](medical-folder-dataset.md#data-loading-plans-dlp),
-      [federated analytics](federated-analytics.md), and registration through the Node GUI.
+    - **Federated analytics**: only numeric phenotypes are covered. See [Federated analytics](#federated-analytics).
+    - **Not supported**: [Data Loading Plans](medical-folder-dataset.md#data-loading-plans-dlp) and registration through
+      the Node GUI.
 
 ## Deploying the dataset
 
@@ -240,3 +241,52 @@ dataset.load(root='/path/to/nipoppy_study', to_format=DataReturnFormat.SKLEARN)
 
 data, target = dataset[0]
 ```
+
+## Federated analytics
+
+As a researcher, you can compute statistics on the numeric phenotypes of a study with
+[federated analytics](../researcher/federated-analytics.md), once it is
+[enabled on the node](../nodes/federated-analytics.md). Columns are selected by their Neurobagel term:
+
+```python
+# `exp` is an Experiment whose tags select the Nipoppy datasets
+mean = exp.analytics.mean(dataset_schema=['nb:Age'])
+```
+
+The node reads every numeric phenotype and keeps all rows. Missing values are excluded column by column, so `count` may
+differ between columns.
+
+!!! warning "Limitations"
+    - **Phenotypes only**: derivatives are not available through federated analytics.
+    - **Numeric columns only**: text and boolean columns are skipped. This includes categorical terms such as `nb:Sex`,
+      and numeric columns that contain text such as `nb:unavailable`, which are read as text.
+    - **One session per participant**: a request fails on longitudinal studies, because it cannot set `session_filters`.
+    - **No participant or session selection**: statistics cover all participants in the study's manifest.
+    - **Columns are fixed at registration**: please register the dataset again after changing the phenotypes. A request
+      fails if a registered column was removed from the study.
+
+A request also fails if the study has no numeric phenotypes.
+
+### Computing statistics locally
+
+On the node, you can call `compute_stats` directly, which also covers derivatives:
+
+```python
+from fedbiomed.common.dataset_types import DataReturnFormat
+
+dataset = NipoppyDataset(
+    phenotypes=['nb:Age'],
+    derivatives=[('freesurfer', '7.3.2', 'idp/fs_stats-0.2.1/fs7.3.2-aseg-volume.tsv')],
+    drop_na=False,
+)
+dataset.load(root='/path/to/nipoppy_study', to_format=DataReturnFormat.SKLEARN)
+
+stats = dataset.compute_stats(stats=['mean'])
+# > {'nb:Age': {'count': 299, 'sum': 19420.0}, ...}
+```
+
+The result holds the values each node sends for aggregation: here `count` and `sum` rather than the mean itself.
+
+!!! warning "Duplicate column names"
+    If selected columns share a name, for example across two versions of a pipeline, the statistics of only one of them
+    are returned, without an error. Select files whose column names are unique.

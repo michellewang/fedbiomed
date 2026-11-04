@@ -28,7 +28,7 @@ FA treats every dataset as a collection of samples, and each sample as one or mo
 
 !!! note "Dataset element types"
     - Multi-modal datasets can contain both types simultaneously — FA handles them independently.
-    - Built-in [dataset classes](index.md) (`TabularDataset`, `MedicalFolderDataset`) declare their element type automatically and are FA-compatible out of the box. If you are writing a custom dataset you must declare it yourself — see below.
+    - Built-in [dataset classes](index.md) (`TabularDataset`, `MedicalFolderDataset`, [`NipoppyDataset`](nipoppy-dataset.md#federated-analytics)) declare their element type automatically and are FA-compatible out of the box. If you are writing a custom dataset you must declare it yourself — see below.
 
 ### Available statistics
 
