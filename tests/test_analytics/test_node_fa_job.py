@@ -861,6 +861,7 @@ def test_run_nipoppy_several_sessions_per_participant_fails(fa_job, tmp_path):
     assert isinstance(reply, ErrorMessage)
     assert reply.errnum == ErrorNumbers.FB325.value
     assert "more than one session" in reply.extra_msg
+    assert "do not support longitudinal" in reply.extra_msg
 
 
 def test_run_nipoppy_no_numeric_phenotype_fails(fa_job, tmp_path):

@@ -196,7 +196,9 @@ class NipoppyController(Controller):
         if participant_ids.has_duplicates:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Some participants have more than one "
-                "session. Use `session_filters` to keep a single session per participant."
+                "session. Use `session_filters` to keep a single session per participant. "
+                "Federated analytics requests cannot set `session_filters`, so they do not "
+                "support longitudinal Nipoppy studies yet."
             )
 
     def get_sample(self, index: int) -> pd.Series:  # type: ignore[override]
