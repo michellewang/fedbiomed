@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from testsupport.fake_nipoppy_reader import FakeNipoppyReader
 
 from fedbiomed.common.constants import (
     DatasetTypes,
@@ -180,6 +181,36 @@ def test_build_args_for_dataset_tabular_numerical_filter(
     ):
         result = fa_job._build_args_for_dataset(entry)
     assert result["input_columns"] == expected_columns
+
+
+@pytest.mark.parametrize(
+    "dtypes,expected_phenotypes",
+    [
+        ({"age": "float64", "score": "int64"}, ["age", "score"]),
+        # Text, boolean and date columns are not selected
+        (
+            {
+                "age": "float64",
+                "sex": "object",
+                "site": "str",
+                "group": "category",
+                "flag": "bool",
+                "date": "datetime64[ns]",
+            },
+            ["age"],
+        ),
+        ({"unknown": "not-a-dtype"}, []),
+        ({}, []),
+    ],
+)
+def test_build_args_for_dataset_nipoppy(fa_job, dtypes, expected_phenotypes):
+    """Only numeric phenotypes are requested, and rows with missing values are kept."""
+    entry = {"data_type": DatasetTypes.NIPOPPY.value, "dtypes": dtypes}
+
+    assert fa_job._build_args_for_dataset(entry) == {
+        "phenotypes": expected_phenotypes,
+        "drop_na": False,
+    }
 
 
 def test_build_args_for_dataset_custom_raises(fa_job):
@@ -761,3 +792,80 @@ def test_check_clipping_overflow_multiple_offenders_named_and_unnamed(fa_job):
     assert "3 computed analytics value(s)" in err.extra_msg
     assert "a.sum" in err.extra_msg and "c" in err.extra_msg
     assert "b" not in err.extra_msg.split("Offending statistic(s):")[1]
+
+
+# ----------------------------- Nipoppy: run with a real dataset -----
+
+
+class _SingleSessionReader(FakeNipoppyReader):
+    """Study with one session per participant, and non-numeric phenotypes."""
+
+    def __init__(self, path):
+        super().__init__(path)
+        baseline = self.phenotypes.index.get_level_values("session_id") == "baseline"
+        self.phenotypes = self.phenotypes[baseline].assign(group="a", flag=True)
+
+
+class _NoNumericPhenotypeReader(FakeNipoppyReader):
+    """Study with text phenotypes only. Rejects empty selections like nipoppy does."""
+
+    def __init__(self, path):
+        super().__init__(path)
+        self.phenotypes = self.phenotypes.assign(group="a")[["group"]]
+
+    def read(self, phenotypes=None, derivatives=None):
+        if phenotypes == []:
+            raise ValueError("Must request at least one measure")
+        return super().read(phenotypes, derivatives)
+
+
+def _run_nipoppy_job(fa_job, tmp_path, reader_cls):
+    """Runs the job with the entry stored at registration, up to the reply."""
+    reader = reader_cls(tmp_path)
+    fa_job._dataset_manager = MagicMock()
+    fa_job._dataset_manager.get_dataset_entry_by_id.return_value = (
+        {
+            "data_type": DatasetTypes.NIPOPPY.value,
+            "path": str(tmp_path),
+            "dtypes": reader.get_schema(),
+            "dataset_parameters": {
+                "available_phenotypes": list(reader.get_schema()),
+                "installed_pipelines": reader.get_installed_pipelines(),
+            },
+        },
+        "dummy_table_name",
+    )
+    fa_job._dataset_schema = None
+
+    with patch(
+        "fedbiomed.common.dataset_controller._nipoppy_controller.NipoppyReader",
+        reader_cls,
+    ):
+        return fa_job.run()
+
+
+def test_run_nipoppy_computes_stats_on_numeric_phenotypes(fa_job, tmp_path):
+    reply = _run_nipoppy_job(fa_job, tmp_path, _SingleSessionReader)
+
+    assert isinstance(reply, FAReply)
+    assert reply.output == {
+        "age": {"count": 2, "sum": 135.0},  # sub-03 has a missing `age`
+        "sex": {"count": 3, "sum": 2.0},
+        "diagnosis": {"count": 3, "sum": 1.0},
+    }
+
+
+def test_run_nipoppy_several_sessions_per_participant_fails(fa_job, tmp_path):
+    reply = _run_nipoppy_job(fa_job, tmp_path, FakeNipoppyReader)
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    assert "more than one session" in reply.extra_msg
+
+
+def test_run_nipoppy_no_numeric_phenotype_fails(fa_job, tmp_path):
+    reply = _run_nipoppy_job(fa_job, tmp_path, _NoNumericPhenotypeReader)
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    assert "Must request at least one measure" in reply.extra_msg

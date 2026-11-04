@@ -7,6 +7,7 @@ Implementation of Federated Analytics Job class of the node component
 
 from typing import Dict, Optional
 
+import pandas as pd
 import polars as pl
 
 from fedbiomed.common.constants import (
@@ -119,6 +120,17 @@ class FAJob(_BaseJob):
             case DatasetTypes.MEDICAL_FOLDER:
                 # Take keys in 'shape' and pass them as ``data_modalities`` to the dataset constructor
                 return {"data_modalities": list(dataset_entry.get("shape", {}))}
+            case DatasetTypes.NIPOPPY:
+                # Same filter as tabular
+                return {
+                    "phenotypes": [
+                        col
+                        for col, dtype_name in dataset_entry.get("dtypes", {}).items()
+                        if pd.api.types.is_numeric_dtype(dtype_name)
+                        and not pd.api.types.is_bool_dtype(dtype_name)
+                    ],
+                    "drop_na": False,
+                }
             case _:
                 raise _InternalJobError(
                     f"Dataset arguments by default are not implemented for dataset type '{data_type}'."
