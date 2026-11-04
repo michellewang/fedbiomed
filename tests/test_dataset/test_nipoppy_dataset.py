@@ -292,3 +292,81 @@ def test_len_matches_iteration(tmp_path, fake_nipoppy_reader):
     # sub-03 kept: its missing `age` is not selected
     items = list(ds)
     assert len(items) == len(ds) == 3
+
+
+# ---------- analytics ----------
+
+
+def set_derivative(dataset):
+    dataset.derivatives = [DERIVATIVE]
+
+
+def add_age_squared(df):
+    return df.assign(age2=df["age"] ** 2)
+
+
+@pytest.mark.parametrize(
+    "kwargs,expected",
+    [
+        ({}, ["age", "sex"]),
+        ({"target": None}, ["age", "sex"]),
+        # A phenotype that is also the target is not an input feature
+        ({"phenotypes": ["age", "diagnosis"]}, ["age"]),
+        # `phenotypes=None` resolves to the available phenotypes
+        ({"phenotypes": None}, ["age", "sex"]),
+        ({"derivatives": [DERIVATIVE]}, ["age", "sex", DERIVATIVE_COLUMN]),
+        (
+            {"derivatives_initializer": set_derivative},
+            ["age", "sex", DERIVATIVE_COLUMN],
+        ),
+        ({"whole_df_level_transform": add_age_squared}, ["age", "sex", "age2"]),
+    ],
+)
+def test_analytics_schema_matches_samples(
+    tmp_path, fake_nipoppy_reader, kwargs, expected
+):
+    ds = make_dataset(**kwargs)
+    node_load(ds, tmp_path)
+
+    input_spec, target_spec = ds.analytics_schema()
+
+    assert input_spec.columns == expected
+    assert target_spec is None
+    assert len(ds[0][0]) == len(expected)
+
+
+def test_analytics_schema_before_load_raises():
+    with pytest.raises(FedbiomedError, match="at least one column"):
+        make_dataset().analytics_schema()
+
+
+def test_compute_stats_counts_missing_values_per_column(tmp_path, fake_nipoppy_reader):
+    ds = make_dataset(drop_na=False)
+    node_load(ds, tmp_path)
+
+    assert ds.compute_stats(stats=["count"]) == {
+        "age": {"count": 2},  # sub-03 has a missing `age`
+        "sex": {"count": 3},
+    }
+
+
+def test_compute_stats_column_subset(tmp_path, fake_nipoppy_reader):
+    ds = make_dataset()
+    node_load(ds, tmp_path)
+
+    assert ds.compute_stats(stats=["sum"], dataset_schema=["sex"]) == {
+        "sex": {"sum": 1.0}
+    }
+
+
+def test_compute_stats_names_derived_columns_correctly(tmp_path, fake_nipoppy_reader):
+    ds = make_dataset(
+        derivatives=[DERIVATIVE], whole_df_level_transform=add_age_squared
+    )
+    node_load(ds, tmp_path)
+
+    stats = ds.compute_stats(stats=["sum"])
+
+    assert stats["age"]["sum"] == 135.0
+    assert stats[DERIVATIVE_COLUMN]["sum"] == pytest.approx(4.9)
+    assert stats["age2"]["sum"] == 70.0**2 + 65.0**2

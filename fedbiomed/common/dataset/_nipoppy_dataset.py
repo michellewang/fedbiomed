@@ -17,7 +17,7 @@ from fedbiomed.common.dataset_controller._nipoppy_controller import (
     NipoppyController,
     SessionFilters,
 )
-from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.dataset_types import DataReturnFormat, RowSpec
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 from fedbiomed.common.logger import logger
 
@@ -94,6 +94,7 @@ class NipoppyDataset(Dataset):
         self.derivatives = derivatives
         self.target = [target] if isinstance(target, str) else target
         self.session_filters = session_filters
+        self._input_columns: Optional[List[str]] = None  # Column names
 
         self._transform = self._validate_transform(sample_level_transform)
         self._target_transform = self._validate_transform(sample_level_target_transform)
@@ -160,10 +161,13 @@ class NipoppyDataset(Dataset):
                     f"{ErrorNumbers.FB632.value}: Failed to run derivatives initializer. {e}"
                 ) from e
 
-        self._controller.select(
+        selected = self._controller.select(
             phenotypes=self._columns_to_read(),
             derivatives=self.derivatives,
         )
+        self._input_columns = [
+            c for c in selected.columns if c not in (self.target or [])
+        ]
 
         # Recover sample and validate consistency of transforms
         data, target = self._split_sample(self._controller.get_sample(0))
@@ -258,3 +262,7 @@ class NipoppyDataset(Dataset):
                 f"{ErrorNumbers.FB632.value}: `derivatives_initializer` must be callable."
             )
         self._derivatives_initializer = derivatives_initializer
+
+    def analytics_schema(self):
+        """Return schema for federated analytics"""
+        return RowSpec(columns=self._input_columns), None
