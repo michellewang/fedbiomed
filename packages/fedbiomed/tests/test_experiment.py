@@ -228,7 +228,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         _strategy = MagicMock(
             spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy
         )
-        _strategy.sample_nodes.return_value = ["node-1", "node-2"]
+        _strategy.sample_nodes.return_value = ["node-1"]
         _strategy.refine.return_value = (1, 2, 3, 4)
 
         exp = Experiment(
@@ -248,7 +248,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         _strategy.sample_nodes.return_value = []
         with self.assertRaises(FedbiomedExperimentError):
             exp.run_once()
-        _strategy.sample_nodes.return_value = ["node-1", "node-2"]
+        _strategy.sample_nodes.return_value = ["node-1"]
         # ---------------------------------------------------------------------
 
         # Go back to normal
@@ -463,7 +463,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         _strategy = MagicMock(
             spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy
         )
-        _strategy.sample_nodes.return_value = ["node-1", "node-2"]
+        _strategy.sample_nodes.return_value = ["node-1"]
         _strategy.refine.return_value = (1, 2, 3, 4)
 
         # Test using aggregator-level optimizer
@@ -891,10 +891,11 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp.set_nodes(["first", "second"])
         self.assertEqual(exp.nodes(), ["first", "second"])
 
-        # Valid arguments + preprocessing
+        # Valid arguments + preprocessing: preprocessing reads the filter from the shared dataset
         exp.set_preprocessing(PreprocType.FEDCOMBAT, {})
         exp.set_nodes(["node-1", "node-2"])
         self.assertEqual(exp.nodes(), ["node-1", "node-2"])
+        self.assertIs(exp.preprocessing._fds, exp.training_data())
 
         # Invalid arguments
         with self.assertRaises(FedbiomedTypeError):
